@@ -5,6 +5,24 @@ using UnityEngine.Assertions;
 
 namespace Assets {
     public class MathTools {
+
+        public static float Product(params float[] factors) {
+            float output = 1f;
+            foreach (float factor in factors) output *= factor;
+            return output;
+        }
+
+        public static int Factorial(int n) {
+            int output = n;
+            for (int i = n - 1; i >= 2; i--) output *= i;
+            return output;
+        }
+
+        public static int Over(int choose, int from) {
+            return Factorial(choose) / (Factorial(from) * Factorial(choose - from));
+        }
+
+
         public static int Modulo(int a, int b) {
             return ((a % b) + b) % b;
         }
