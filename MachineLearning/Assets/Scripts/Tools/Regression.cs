@@ -1,173 +1,141 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
+using Assets;
+using UnityEngine.Assertions;
 
 
+public delegate double Addend(double[] inValues);
 
-namespace Rosetta {
-    internal class Vector {
-        private double[] b;
-        internal readonly int rows;
+public abstract class Approximator {
+    abstract public double Output(double[] inValues);
+    abstract public void Fit(double[] inValues, double targetValue, int drag);
+    abstract public double[] GetParameters();
+}
 
-        internal Vector(int rows) {
-            this.rows = rows;
-            b = new double[rows];
-        }
+public class Regressor : Approximator {
+    private readonly int noAddends;
+    private readonly Addend[] addends;
+    private readonly Matrix<double> varMatrix;
+    private readonly Vector<double> covVector;
 
-        internal Vector(double[] initArray) {
-            b = (double[])initArray.Clone();
-            rows = b.Length;
-        }
+    public Regressor(Addend[] addends) {
+        this.noAddends = addends.Length;
+        this.addends = addends;
+        this.covVector = Vector<double>.Build.Dense(this.noAddends);
+        this.varMatrix = Matrix<double>.Build.Dense(this.noAddends, this.noAddends);
 
-        internal Vector Clone() {
-            Vector v = new Vector(b);
-            return v;
-        }
-
-        internal double this[int row] {
-            get { return b[row]; }
-            set { b[row] = value; }
-        }
-
-        internal void SwapRows(int r1, int r2) {
-            if (r1 == r2) return;
-            double tmp = b[r1];
-            b[r1] = b[r2];
-            b[r2] = tmp;
-        }
-
-        internal double norm(double[] weights) {
-            double sum = 0;
-            for (int i = 0; i < rows; i++) {
-                double d = b[i] * weights[i];
-                sum += d * d;
-            }
-            return Math.Sqrt(sum);
-        }
-
-        internal void print() {
-            for (int i = 0; i < rows; i++)
-                Console.WriteLine(b[i]);
-            Console.WriteLine();
-        }
-
-        public static Vector operator -(Vector lhs, Vector rhs) {
-            Vector v = new Vector(lhs.rows);
-            for (int i = 0; i < lhs.rows; i++)
-                v[i] = lhs[i] - rhs[i];
-            return v;
-        }
     }
 
-    class Matrix {
-        private double[] b;
-        internal readonly int rows, cols;
-
-        internal Matrix(int rows, int cols) {
-            this.rows = rows;
-            this.cols = cols;
-            b = new double[rows * cols];
+    public override void Fit(double[] inValues, double targetValue, int drag) {
+        Assert.IsTrue(drag >= 0);
+        double[] components = new double[this.noAddends];
+        Addend function;
+        for (int i = 0; i < components.Length; i++) {
+            function = this.addends[i];
+            components[i] = function(inValues);
         }
 
-        internal Matrix(int size) {
-            this.rows = size;
-            this.cols = size;
-            b = new double[rows * cols];
-            for (int i = 0; i < size; i++)
-                this[i, i] = 1;
-        }
+        double componentA, componentB, value;
+        for (int i = 0; i < components.Length; i++) {
+            componentA = components[i];
 
-        internal Matrix(int rows, int cols, double[] initArray) {
-            this.rows = rows;
-            this.cols = cols;
-            b = (double[])initArray.Clone();
-            if (b.Length != rows * cols) throw new Exception("bad init array");
-        }
+            for (int j = 0; j < i + 1; j++) {
+                componentB = components[j];
+                value = MathTools.Smear(this.varMatrix[i, j], componentA * componentB, drag);
+                this.varMatrix[i, j] = value;
 
-        internal double this[int row, int col] {
-            get { return b[row * cols + col]; }
-            set { b[row * cols + col] = value; }
-        }
-
-        public static Vector operator *(Matrix lhs, Vector rhs) {
-            if (lhs.cols != rhs.rows) throw new Exception("I can't multiply matrix by vector");
-            Vector v = new Vector(lhs.rows);
-            for (int i = 0; i < lhs.rows; i++) {
-                double sum = 0;
-                for (int j = 0; j < rhs.rows; j++)
-                    sum += lhs[i, j] * rhs[j];
-                v[i] = sum;
-            }
-            return v;
-        }
-
-        internal void SwapRows(int r1, int r2) {
-            if (r1 == r2) return;
-            int firstR1 = r1 * cols;
-            int firstR2 = r2 * cols;
-            for (int i = 0; i < cols; i++) {
-                double tmp = b[firstR1 + i];
-                b[firstR1 + i] = b[firstR2 + i];
-                b[firstR2 + i] = tmp;
-            }
-        }
-
-        //with partial pivot
-        internal void ElimPartial(Vector B) {
-            for (int diag = 0; diag < rows; diag++) {
-                int max_row = diag;
-                double max_val = Math.Abs(this[diag, diag]);
-                double d;
-                for (int row = diag + 1; row < rows; row++)
-                    if ((d = Math.Abs(this[row, diag])) > max_val) {
-                        max_row = row;
-                        max_val = d;
-                    }
-                SwapRows(diag, max_row);
-                B.SwapRows(diag, max_row);
-                double invd = 1 / this[diag, diag];
-                for (int col = diag; col < cols; col++)
-                    this[diag, col] *= invd;
-                B[diag] *= invd;
-                for (int row = 0; row < rows; row++) {
-                    d = this[row, diag];
-                    if (row != diag) {
-                        for (int col = diag; col < cols; col++)
-                            this[row, col] -= d * this[diag, col];
-                        B[row] -= d * B[diag];
-                    }
+                if (j < 1) {
+                    continue;
                 }
+                this.varMatrix[j, i] = value;
             }
-        }
 
-        internal void print() {
-            for (int i = 0; i < rows; i++) {
-                for (int j = 0; j < cols; j++)
-                    Console.Write(this[i, j].ToString() + "  ");
-                Console.WriteLine();
-            }
+            this.covVector[i] = MathTools.Smear(this.covVector[i], componentA * targetValue, drag);
         }
     }
 
-    internal class Regressor {
+    public override double[] GetParameters() {
+        Vector<double> parameters = this.varMatrix.Solve(this.covVector);
+        return parameters.AsArray();
+    }
 
-        internal Regressor() {
+    public override double Output(double[] inValues) {
+        double[] parameters = this.GetParameters();
+        Addend function;
 
+        double output = 0f;
+        for (int i = 0; i < this.noAddends; i++) {
+            function = this.addends[i];
+            output += parameters[i] * function(inValues);
         }
+
+        return output;
     }
 }
 
+public class RegressorPolynomial : Regressor {
+    public RegressorPolynomial(int noArguments, int degree) : base(RegressorPolynomial.AddendsPolynomial(noArguments, degree)) {
+    }
 
-public class NewBehaviourScript : MonoBehaviour
-{
+    private static Addend CreateProduct(int noArguments, int[] indices) {
+        Addend productSelect = delegate (double[] inValues) {
+            int l = inValues.Length;
+            Assert.AreEqual(l, noArguments);
+            double[] factors = new double[indices.Length];
+            foreach (int i in indices) {
+                Assert.IsTrue(i < l);
+                factors[i] = inValues[i];
+            }
+            return MathTools.Product(factors);
+        };
+
+        return productSelect;
+
+    }
+
+    private static Addend[] AddendsPolynomial(int noArguments, int degree) {
+        int[] noCombinations = new int[degree];
+        for (int i = 0; i < degree; i++) {
+            noCombinations[i] = MathTools.Over(noArguments + i, i + 1);
+        }
+        int noAppends = 1 + MathTools.Sum(noCombinations);
+        Addend[] addends = new Addend[noAppends];
+
+        addends[0] = delegate (double[] inValues) {
+            return 1d;
+        };
+
+        bool[] indicesBool;
+        int[] indices;
+        int index = 1, indexSub;
+        for (int i = 0; i < degree; i++) {
+            NDimPermutator nDimPermutator = new NDimPermutator(noArguments, i + 1);
+
+            while (nDimPermutator.MoveNext()) {
+                indicesBool = nDimPermutator.Current;
+                indexSub = 0;
+                indices = new int[i + 1];
+                for (int j = 0; j < indicesBool.Length; j++) {
+                    if (indicesBool[j]) {
+                        indices[indexSub++] = j;
+                    }
+                }
+                addends[index++] = RegressorPolynomial.CreateProduct(noArguments, indices);
+            }
+        }
+        return addends;
+    }
+
+}
+
+
+public class NewBehaviourScript : MonoBehaviour {
     // Start is called before the first frame update
-    void Start()
-    {
+    void Start() {
 
     }
 
     // Update is called once per frame
-    void Update()
-    {
-        
+    void Update() {
+
     }
 }

@@ -5,24 +5,6 @@ using UnityEngine.Assertions;
 
 namespace Assets {
     public class MathTools {
-
-        public static float Product(params float[] factors) {
-            float output = 1f;
-            foreach (float factor in factors) output *= factor;
-            return output;
-        }
-
-        public static int Factorial(int n) {
-            int output = n;
-            for (int i = n - 1; i >= 2; i--) output *= i;
-            return output;
-        }
-
-        public static int Over(int choose, int from) {
-            return Factorial(choose) / (Factorial(from) * Factorial(choose - from));
-        }
-
-
         public static int Modulo(int a, int b) {
             return ((a % b) + b) % b;
         }
@@ -81,6 +63,72 @@ namespace Assets {
             float factor = Sigmoid(t * 20f - 10f);
             return a * (1f - factor) + b * factor;
         }
+
+        public static double Smear(double average, double update, double inertia) {
+            return (inertia * average + update) / (inertia + 1);
+        }
+
+
+        public static double Sum(double[] values) {
+            double result = 0d;
+            foreach (double v in values) {
+                result += v;
+            }
+            return result;
+        }
+
+        public static float Sum(float[] values) {
+            float result = 0f;
+            foreach (float v in values) {
+                result += v;
+            }
+            return result;
+        }
+
+        public static int Sum(int[] values) {
+            int result = 0;
+            foreach (int v in values) {
+                result += v;
+            }
+            return result;
+        }
+
+        public static int Factorial(int n) {
+            int f = 1;
+            for (; n > 1; n--) {
+                f *= n;
+            }
+            return f;
+        }
+
+        public static int Over(int choose, int from) {
+            return Factorial(choose) / (Factorial(from) * Factorial(choose - from));
+        }
+
+        public static int Product(int[] values) {
+            int result = 1;
+            foreach (int v in values) {
+                result *= v;
+            }
+            return result;
+        }
+
+        public static float Product(float[] values) {
+            float result = 1f;
+            foreach (float v in values) {
+                result *= v;
+            }
+            return result;
+        }
+
+        public static double Product(double[] values) {
+            double result = 1d;
+            foreach (double v in values) {
+                result *= v;
+            }
+            return result;
+        }
+
 
     }
 }
