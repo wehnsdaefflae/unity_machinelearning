@@ -1,7 +1,5 @@
 ﻿using Assets;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 
@@ -44,10 +42,6 @@ class GradientDescent {
             }
         }
         return output;
-    }
-
-    public static void GradientDescentMethod(Func<float[], float[]>, int degree, int noArguments) {
-        
     }
 
 }
