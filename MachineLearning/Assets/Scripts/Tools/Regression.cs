@@ -127,6 +127,17 @@ public class RegressorPolynomial : Regressor {
 
 }
 
+class QLearning {
+    private readonly float alpha;
+    private readonly float discount;
+    private Regressor regressor = new RegressorPolynomial(4, 4);  // https://towardsdatascience.com/cartpole-introduction-to-reinforcement-learning-ed0eb5b58288
+
+    public QLearning(float alpha, float discount) {
+        this.alpha = alpha;
+        this.discount = discount;
+    }
+}
+
 
 public class NewBehaviourScript : MonoBehaviour {
     // Start is called before the first frame update

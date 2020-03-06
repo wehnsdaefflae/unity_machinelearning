@@ -8,6 +8,7 @@ public class CartIO : MonoBehaviour
     protected Rigidbody rigidBody;
     public float force = 50f;
     public float reward = 0f;
+    private RegressorPolynomial regressorPolynomial = new RegressorPolynomial(1, 4);
 
     // Start is called before the first frame update
     void Start()
