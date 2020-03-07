@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine.Assertions;
 
 namespace Assets {
@@ -42,6 +43,7 @@ namespace Assets {
         public void Reset() {
             for (int i = 0; i < this.dimensions - 1; i++) this.current[i] = 0;
             this.current[this.dimensions - 1] = -1;
+            // TODO: not usable after reset
         }
         
         public bool MoveNext() {
@@ -64,14 +66,36 @@ namespace Assets {
         }
     }
 
-    class NDimPermutator : IEnumerator<bool[]> {
+    /**
+    class NDimCombinatorRepetitions : NDimEnumerator {
+        private readonly int noTokens;
+
+        public NDimCombinatorRepetitions(int noTypes, int noTokens) : base(Enumerable.Repeat(noTokens + 1, noTypes).ToArray()) {
+            this.noTokens = noTokens;
+        }
+
+        new public bool MoveNext() {
+            bool r ;
+            {
+                r = base.MoveNext();
+                if (!r) {
+                    return false;
+                }
+            } while (base.Current.Sum() != this.noTokens);
+            return true;
+        }
+    }
+    **/
+
+
+    class NDimCombinator : IEnumerator<bool[]> {
         private readonly bool[] current;
         private readonly int size;
         private readonly int selection;
         private bool initial;
 
 
-        public NDimPermutator(int size, int selection) {
+        public NDimCombinator(int size, int selection) {
             Assert.IsTrue(size >= selection);
             this.size = size;
             this.selection = selection;
@@ -102,6 +126,8 @@ namespace Assets {
             for (int i = 0; i < this.size - this.selection; i++) this.current[i] = false;
             for (int i = this.size - this.selection; i < this.size; i++) this.current[i] = true;
             this.initial = true;
+            // TODO: usable after reset
+
         }
 
         public bool MoveNext() {

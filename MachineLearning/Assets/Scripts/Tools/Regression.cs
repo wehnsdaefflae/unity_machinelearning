@@ -2,6 +2,7 @@
 using Assets;
 using UnityEngine.Assertions;
 using MathNet.Numerics.LinearAlgebra;
+using System.Linq;
 
 public delegate double Addend(double[] inValues);
 
@@ -76,16 +77,18 @@ public class RegressorPolynomial : Regressor {
     public RegressorPolynomial(int noArguments, int degree) : base(RegressorPolynomial.AddendsPolynomial(noArguments, degree)) {
     }
 
-    private static Addend CreateProduct(int noArguments, int[] indices) {
+    private static Addend CreateProduct(int[] factors) {
         Addend productSelect = delegate (double[] inValues) {
             int l = inValues.Length;
-            Assert.AreEqual(l, noArguments);
-            double[] factors = new double[indices.Length];
-            foreach (int i in indices) {
-                Assert.IsTrue(i < l);
-                factors[i] = inValues[i];
+            Assert.AreEqual(l, factors.Length);
+            double product = 1d;
+            double factor;
+            for (int i = 0; i < l; i++) {
+                factor = inValues[i];
+                for (int j = 0; j < factors[i]; j++)
+                    product *= factor;
             }
-            return MathTools.Product(factors);
+            return product;
         };
 
         return productSelect;
@@ -93,48 +96,72 @@ public class RegressorPolynomial : Regressor {
     }
 
     private static Addend[] AddendsPolynomial(int noArguments, int degree) {
-        int[] noCombinations = new int[degree];
+        int noCombinations = 1;
         for (int i = 0; i < degree; i++) {
-            noCombinations[i] = MathTools.Over(noArguments + i, i + 1);
+            noCombinations += MathTools.Over(noArguments + i, i + 1);
         }
-        int noAppends = 1 + MathTools.Sum(noCombinations);
-        Addend[] addends = new Addend[noAppends];
+        Addend[] addends = new Addend[noCombinations];
 
         addends[0] = delegate (double[] inValues) {
             return 1d;
         };
 
-        bool[] indicesBool;
-        int[] indices;
-        int index = 1, indexSub;
-        for (int i = 0; i < degree; i++) {
-            NDimPermutator nDimPermutator = new NDimPermutator(noArguments, i + 1);
+        int[] indicesOccurences;
+        int index = 1;
+        NDimEnumerator nDimEnumerator;
+        for (int i = 1; degree >= i; i++) {
+            nDimEnumerator = new NDimEnumerator(Enumerable.Repeat(i, noArguments).ToArray());
 
-            while (nDimPermutator.MoveNext()) {
-                indicesBool = nDimPermutator.Current;
-                indexSub = 0;
-                indices = new int[i + 1];
-                for (int j = 0; j < indicesBool.Length; j++) {
-                    if (indicesBool[j]) {
-                        indices[indexSub++] = j;
-                    }
+            while (nDimEnumerator.MoveNext()) {
+                indicesOccurences = nDimEnumerator.Current;
+                if (indicesOccurences.Sum() == i) {
+                    addends[index++] = RegressorPolynomial.CreateProduct(indicesOccurences);
                 }
-                addends[index++] = RegressorPolynomial.CreateProduct(noArguments, indices);
             }
         }
+
         return addends;
     }
 
 }
 
 class QLearning {
-    private readonly float alpha;
+    private readonly float alpha; // somehow drag, no?
     private readonly float discount;
-    private Regressor regressor = new RegressorPolynomial(4, 4);  // https://towardsdatascience.com/cartpole-introduction-to-reinforcement-learning-ed0eb5b58288
+    private readonly float epsilon;
+    private Regressor regressorAction;
+    private Regressor regressorQ;
 
-    public QLearning(float alpha, float discount) {
+    private double qLast;
+    private double[] sensorLast;
+    private double actionLast;
+    private int drag;
+
+    public QLearning(int dimensionSensor, float alpha, float discount, float epsilon) {
         this.alpha = alpha;
         this.discount = discount;
+        this.epsilon = epsilon;
+        this.regressorAction = new RegressorPolynomial(dimensionSensor, 4);  // https://towardsdatascience.com/cartpole-introduction-to-reinforcement-learning-ed0eb5b58288
+        this.regressorQ = new RegressorPolynomial(dimensionSensor, 4);
+        this.drag = 100;
+    }
+
+    public void fit(double reward) {
+        double qThis = this.qLast * (1d - discount) + reward * discount;
+        double qKnown = this.regressorQ.Output(this.sensorLast);
+        if (qKnown < this.qLast) {
+            this.regressorAction.Fit(this.sensorLast, this.actionLast, this.drag);
+            this.regressorQ.Fit(this.sensorLast, qThis, this.drag);
+        }
+
+        this.qLast = qThis;
+    }
+
+    public double act(double[] sensor) {
+        this.sensorLast = sensor;
+        float noiseNormal = Random.Range(-this.epsilon, this.epsilon) * Random.Range(-this.epsilon, this.epsilon);
+        this.actionLast = this.regressorAction.Output(sensor) + noiseNormal;
+        return this.actionLast;
     }
 }
 

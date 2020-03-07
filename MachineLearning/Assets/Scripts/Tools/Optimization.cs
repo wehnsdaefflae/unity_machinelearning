@@ -27,11 +27,11 @@ class GradientDescent {
     public static float Polynomial(float[] parameters, int degree, float[] arguments) {
         int parameterCount = 0;
         float output = parameters[parameterCount++];
-        NDimPermutator permutator;
+        NDimCombinator permutator;
         bool[] argumentSelection;
         float product;
         for (int i = 0; i < degree; i++) {
-            permutator = new NDimPermutator(arguments.Length, i + 1);
+            permutator = new NDimCombinator(arguments.Length, i + 1);
             while (permutator.MoveNext()) {
                 product = parameters[parameterCount++];
                 argumentSelection = permutator.Current;
