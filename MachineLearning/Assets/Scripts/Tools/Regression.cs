@@ -54,9 +54,18 @@ public class Regressor : Approximator {
         }
     }
 
+    private static bool ContainsNAN(double[] values) {
+        foreach (double v in values) {
+            if (double.IsNaN(v)) return true;
+        }
+        return false;
+    }
+
     public override double[] GetParameters() {
-        Vector<double> parameters = this.varMatrix.Solve(this.covVector);
-        return parameters.AsArray();
+        Vector<double> solution = this.varMatrix.Solve(this.covVector);
+        double[] parameters = solution.AsArray();
+        if (Regressor.ContainsNAN(parameters)) return new double[parameters.Length];
+        return parameters;
     }
 
     public override double Output(double[] inValues) {
@@ -66,7 +75,7 @@ public class Regressor : Approximator {
         double output = 0f;
         for (int i = 0; i < this.noAddends; i++) {
             function = this.addends[i];
-            output += parameters[i] * function(inValues);
+             output += parameters[i] * function(inValues);
         }
 
         return output;
@@ -126,41 +135,55 @@ public class RegressorPolynomial : Regressor {
 }
 
 class QLearning {
+    // parameters
     private readonly float alpha; // somehow drag, no?
     private readonly float discount;
     private readonly float epsilon;
-    private Regressor regressorAction;
-    private Regressor regressorQ;
+    private int drag;
 
+    // approximators
+    private Regressor actor;
+    private Regressor critic;
+
+    // memory
     private double qLast;
     private double[] sensorLast;
     private double actionLast;
-    private int drag;
+
+    private double[] rangeAction;
 
     public QLearning(int dimensionSensor, float alpha, float discount, float epsilon) {
         this.alpha = alpha;
         this.discount = discount;
         this.epsilon = epsilon;
-        this.regressorAction = new RegressorPolynomial(dimensionSensor, 4);  // https://towardsdatascience.com/cartpole-introduction-to-reinforcement-learning-ed0eb5b58288
-        this.regressorQ = new RegressorPolynomial(dimensionSensor, 4);
         this.drag = 100;
+
+        this.actor = new RegressorPolynomial(dimensionSensor, 4);  // https://towardsdatascience.com/cartpole-introduction-to-reinforcement-learning-ed0eb5b58288
+        this.critic = new RegressorPolynomial(dimensionSensor, 4);
+
+        this.qLast = 0d;
+        this.sensorLast = new double[dimensionSensor];
+        this.actionLast = 0d;
+
+        this.rangeAction = new double[] { -500d, 500d };
     }
 
-    public void fit(double reward) {
-        double qThis = this.qLast * (1d - discount) + reward * discount;
-        double qKnown = this.regressorQ.Output(this.sensorLast);
+    public void Fit(double reward) {
+        double qThis = reward + discount * this.qLast;
+        double qKnown = this.critic.Output(this.sensorLast);
+
         if (qKnown < this.qLast) {
-            this.regressorAction.Fit(this.sensorLast, this.actionLast, this.drag);
-            this.regressorQ.Fit(this.sensorLast, qThis, this.drag);
+            this.actor.Fit(this.sensorLast, this.actionLast, this.drag);
+            this.critic.Fit(this.sensorLast, qThis, this.drag);
         }
 
         this.qLast = qThis;
     }
 
-    public double act(double[] sensor) {
+    public double Act(double[] sensor) {
         this.sensorLast = sensor;
         float noiseNormal = Random.Range(-this.epsilon, this.epsilon) * Random.Range(-this.epsilon, this.epsilon);
-        this.actionLast = this.regressorAction.Output(sensor) + noiseNormal;
+        this.actionLast = this.actor.Output(sensor) + noiseNormal;
         return this.actionLast;
     }
 }

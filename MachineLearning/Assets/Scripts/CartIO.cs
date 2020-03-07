@@ -2,18 +2,40 @@
 using UnityEngine;
 
 
-[ExecuteInEditMode]
 public class CartIO : MonoBehaviour
 {
-    protected Rigidbody rigidBody;
-    public float force = 50f;
-    public float reward = 0f;
-    private RegressorPolynomial regressorPolynomial = new RegressorPolynomial(1, 4);
+    // objects
+    protected Rigidbody cart;
+    protected Rigidbody pole;
+    protected Rigidbody tip;
+
+    // agent
+    private QLearning qLearning;
+
+    // io
+    public double[] sensor;
+    public float reward;
 
     // Start is called before the first frame update
-    void Start()
+    private void Start() {
+        
+    }
+
+    void Awake()
     {
-        this.rigidBody = GetComponent<Rigidbody>();
+        this.cart = GetComponent<Rigidbody>();
+
+        GameObject objectPole = this.transform.GetChild(0).gameObject;
+        this.pole = objectPole.GetComponent<Rigidbody>();
+
+        GameObject objectTip = this.transform.GetChild(1).gameObject;
+        this.tip = objectTip.GetComponent<Rigidbody>();
+
+        this.sensor = new double[5];
+        this.qLearning = new QLearning(this.sensor.Length, .2f, .1f, .1f);
+
+        this.updateIO();
+
     }
 
     // Update is called once per frame
@@ -21,33 +43,22 @@ public class CartIO : MonoBehaviour
     }
 
     public void MoveLeft(float force) {
-        this.rigidBody.AddForce(new Vector3(-force, 0f, 0f));
+        this.cart.AddForce(new Vector3(-force, 0f, 0f));
     }
 
     public void MoveRight(float force) {
-        this.rigidBody.AddForce(new Vector3(force, 0f, 0f));
+        this.cart.AddForce(new Vector3(force, 0f, 0f));
     }
 
    
     public void Reset() {
-        GameObject objectPole = this.transform.GetChild(0).gameObject;
-        Rigidbody pole = objectPole.GetComponent<Rigidbody>();
-
         Vector3 position = new Vector3(0f, 0f, -5f);
-        pole.transform.position = position;
+        this.pole.transform.position = position;
 
         Quaternion rotation = new Quaternion(0f, 0f, 0f, 0f);
-        pole.transform.rotation = rotation;
+        this.pole.transform.rotation = rotation;
     }
 
-    private void keyInput() {
-        if (Input.GetKeyDown(KeyCode.LeftArrow)) {
-            this.MoveLeft(this.force);
-        
-        } else if (Input.GetKeyDown(KeyCode.RightArrow)) {
-            this.MoveRight(this.force);
-        }
-    }
 
     private void borderTeleport() {
         Vector3 position = this.transform.position;
@@ -61,18 +72,43 @@ public class CartIO : MonoBehaviour
         }
     }
 
-    private void updateReward() {
-        GameObject objectPole = this.transform.GetChild(0).gameObject;
-        GameObject tip = objectPole.transform.GetChild(0).gameObject;
-
-        Vector3 positionTip = tip.transform.position;
+    private void updateIO() {
+        Vector3 positionTip = this.tip.position;
         this.reward = Math.Max(Math.Min(positionTip.y / 10f, 1f), -1f);
+
+        double positionCart = this.transform.position.x;
+        double velocityCart = this.cart.velocity.x;
+        double angularVelocityPole = this.cart.angularVelocity.z;
+        double positionXTip = this.tip.transform.position.x - this.transform.position.x;
+        double positionYTip = this.tip.transform.position.y - this.transform.position.y;
+
+        this.sensor[0] = positionCart;  // -10, 10
+        this.sensor[1] = velocityCart;  // -20, 20
+        this.sensor[2] = angularVelocityPole;
+        this.sensor[3] = positionXTip;  // 
+        this.sensor[4] = positionYTip;  // 
+    }
+
+    private void controlUpdate() {
+        this.qLearning.Fit(this.reward);
+        float action = (float) this.qLearning.Act(this.sensor);
+        if (action < 0d) {
+            this.MoveLeft(-action);
+        } else {
+            this.MoveRight(action);
+        }
+
+        if (Input.GetKeyDown(KeyCode.LeftArrow)) {
+            this.MoveLeft(50f);
+
+        } else if (Input.GetKeyDown(KeyCode.RightArrow)) {
+            this.MoveRight(50f);
+        }
     }
 
     void FixedUpdate() {
-        this.keyInput();
+        this.updateIO();
+        this.controlUpdate();
         this.borderTeleport();
-        this.updateReward();
-
     }
 }
