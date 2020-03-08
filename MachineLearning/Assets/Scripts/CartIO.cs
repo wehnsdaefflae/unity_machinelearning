@@ -35,7 +35,7 @@ public class CartIO : MonoBehaviour
         GameObject objectTip = this.transform.GetChild(1).gameObject;
         this.tip = objectTip.GetComponent<Rigidbody>();
 
-        this.sensor = new double[5];
+        this.sensor = new double[4];
         this.qLearning = new QLearning(this.sensor.Length, .2f, .1f, .1f);
 
         this.updateIO();
@@ -80,22 +80,20 @@ public class CartIO : MonoBehaviour
         Vector3 positionTip = this.tip.position;
         this.reward = Math.Max(Math.Min(positionTip.y / 10f, 1f), -1f);
 
-        double positionCart = this.transform.position.x;
         double velocityCart = this.cart.velocity.x;
         double angularVelocityPole = this.cart.angularVelocity.z;
         double positionXTip = this.tip.transform.position.x - this.transform.position.x;
         double positionYTip = this.tip.transform.position.y - this.transform.position.y;
 
-        this.sensor[0] = positionCart;  // -10, 10
-        this.sensor[1] = velocityCart;  // -20, 20
-        this.sensor[2] = angularVelocityPole;
-        this.sensor[3] = positionXTip;  // 
-        this.sensor[4] = positionYTip;  // 
+        this.sensor[0] = velocityCart;  // -20, 20
+        this.sensor[1] = angularVelocityPole;
+        this.sensor[2] = positionXTip;  // 
+        this.sensor[3] = positionYTip;  // 
     }
 
     private void controlUpdate() {
-        this.qLearning.Fit(this.reward);
-        float action = (float) this.qLearning.Act(this.sensor);
+        float action = (float) this.qLearning.React(this.sensor, this.reward);
+            
         if (action < 0d) {
             this.MoveLeft(-action);
         } else {

@@ -150,11 +150,10 @@ class QLearning {
     private Regressor critic;
 
     // memory
-    private double qLast;
     private double[] sensorLast;
     private double actionLast;
 
-    private double[] rangeAction;
+    private float[] rangeAction;
 
     public QLearning(int dimensionSensor, float alpha, float discount, float epsilon) {
         this.alpha = alpha;
@@ -165,31 +164,38 @@ class QLearning {
         this.actor = new RegressorPolynomial(dimensionSensor, 4);  // https://towardsdatascience.com/cartpole-introduction-to-reinforcement-learning-ed0eb5b58288
         this.critic = new RegressorPolynomial(dimensionSensor, 4);
 
-        this.qLast = 0d;
         this.sensorLast = new double[dimensionSensor];
         this.actionLast = 0d;
 
-        this.rangeAction = new double[] { -100d, 100d };
+        this.rangeAction = new float[] { -100f, 100f };
     }
 
-    public void Fit(double reward) {
-        double qThis = reward + discount * this.qLast;
-        double qKnown = this.critic.Output(this.sensorLast);
+    public double React(double[] sensor, double reward) {
+        double action = this.Act(sensor);
+        this.Fit(sensor, reward);
 
-        if (qKnown < this.qLast) {
-            this.actor.Fit(this.sensorLast, this.actionLast, this.drag);
-            this.critic.Fit(this.sensorLast, qThis, this.drag);
-        }
-
-        this.qLast = qThis;
-    }
-
-    public double Act(double[] sensor) {
         this.sensorLast = sensor;
-        float noiseNormal = UnityEngine.Random.Range(-this.epsilon, this.epsilon) * UnityEngine.Random.Range(-this.epsilon, this.epsilon);
-        double action = Math.Min(Math.Max(this.actor.Output(sensor), this.rangeAction[0]), this.rangeAction[1]);
-        this.actionLast = action + noiseNormal;
-        return this.actionLast;
+        this.actionLast = action;
+        return action;
+    }
+    private void Fit(double[] sensor, double reward) {
+        double qPrev = this.critic.Output(this.sensorLast);
+        double qNow = this.critic.Output(sensor);
+        double qUpdate = reward + this.discount * qNow;
+        if (qPrev < qNow) {
+            this.critic.Fit(this.sensorLast, qUpdate, this.drag);
+            this.actor.Fit(this.sensorLast, this.actionLast, this.drag);
+        }
+    }
+
+    private double Act(double[] sensor) {
+        double action;
+        if (UnityEngine.Random.Range(0f, 1f) >= this.epsilon) {
+            action = UnityEngine.Random.Range(this.rangeAction[0], this.rangeAction[1]);
+            return action;
+        }
+        action = Math.Min(Math.Max(this.actor.Output(sensor), this.rangeAction[0]), this.rangeAction[1]);
+        return action;
     }
 }
 
