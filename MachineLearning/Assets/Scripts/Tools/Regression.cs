@@ -169,7 +169,7 @@ class QLearning {
         this.sensorLast = new double[dimensionSensor];
         this.actionLast = 0d;
 
-        this.rangeAction = new double[] { -500d, 500d };
+        this.rangeAction = new double[] { -100d, 100d };
     }
 
     public void Fit(double reward) {
