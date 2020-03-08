@@ -3,6 +3,7 @@ using Assets;
 using UnityEngine.Assertions;
 using MathNet.Numerics.LinearAlgebra;
 using System.Linq;
+using System;
 
 public delegate double Addend(double[] inValues);
 
@@ -70,12 +71,13 @@ public class Regressor : Approximator {
 
     public override double Output(double[] inValues) {
         double[] parameters = this.GetParameters();
+        Assert.AreEqual(parameters.Length, this.addends.Length);
         Addend function;
 
-        double output = 0f;
+        double output = 0d;
         for (int i = 0; i < this.noAddends; i++) {
             function = this.addends[i];
-             output += parameters[i] * function(inValues);
+            output += parameters[i] * function(inValues);
         }
 
         return output;
@@ -115,11 +117,13 @@ public class RegressorPolynomial : Regressor {
             return 1d;
         };
 
+        int[] states;
         int[] indicesOccurences;
         int index = 1;
         NDimEnumerator nDimEnumerator;
-        for (int i = 1; degree >= i; i++) {
-            nDimEnumerator = new NDimEnumerator(Enumerable.Repeat(i, noArguments).ToArray());
+        for (int i = 1; i < degree + 1; i++) {
+            states = Enumerable.Repeat(i + 1, noArguments).ToArray();
+            nDimEnumerator = new NDimEnumerator(states);
 
             while (nDimEnumerator.MoveNext()) {
                 indicesOccurences = nDimEnumerator.Current;
@@ -182,8 +186,9 @@ class QLearning {
 
     public double Act(double[] sensor) {
         this.sensorLast = sensor;
-        float noiseNormal = Random.Range(-this.epsilon, this.epsilon) * Random.Range(-this.epsilon, this.epsilon);
-        this.actionLast = this.actor.Output(sensor) + noiseNormal;
+        float noiseNormal = UnityEngine.Random.Range(-this.epsilon, this.epsilon) * UnityEngine.Random.Range(-this.epsilon, this.epsilon);
+        double action = Math.Min(Math.Max(this.actor.Output(sensor), this.rangeAction[0]), this.rangeAction[1]);
+        this.actionLast = action + noiseNormal;
         return this.actionLast;
     }
 }

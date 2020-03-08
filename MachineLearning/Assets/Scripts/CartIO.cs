@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class CartIO : MonoBehaviour
 {
+    float timeLast;
+
     // objects
     protected Rigidbody cart;
     protected Rigidbody pole;
@@ -23,6 +25,8 @@ public class CartIO : MonoBehaviour
 
     void Awake()
     {
+        this.timeLast = Time.realtimeSinceStartup;
+
         this.cart = GetComponent<Rigidbody>();
 
         GameObject objectPole = this.transform.GetChild(0).gameObject;
@@ -108,7 +112,11 @@ public class CartIO : MonoBehaviour
 
     void FixedUpdate() {
         this.updateIO();
-        this.controlUpdate();
+        float time = Time.realtimeSinceStartup;
+        if (.5f < time - this.timeLast) {
+            this.controlUpdate();
+            this.timeLast = time;
+        }
         this.borderTeleport();
     }
 }
